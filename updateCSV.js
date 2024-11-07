@@ -1,20 +1,25 @@
 import fastCsv from 'fast-csv';
 import { PassThrough } from 'stream';
 import AWS from 'aws-sdk';
+import dotenv from 'dotenv';
 
 const s3 = new AWS.S3();
 
-export const handler = async (bucket, key, targetId) => {
+export const handler = async (targetId) => {
+    dotenv.config();
+    const BUCKET_NAME = process.env.S3_BUCKET_NAME;
+    const OBJECT_KEY = process.env.S3_OBJECT_KEY;
+
     const data = [];
     const deletedData = [];
-    const params = { Bucket: bucket, Key: key };
+    const params = { Bucket: BUCKET_NAME, Key: OBJECT_KEY };
     try {
         const s3Stream = s3.getObject(params).createReadStream();
         await new Promise((resolve, reject) => {
             s3Stream
                 .pipe(fastCsv.parse({ headers: true }))
                 .on('data', (row) => {
-                    if (row.Index !== targetId) {
+                    if (String(row.Index) !== String(targetId)) {
                         data.push(row);
                     } else {
                         deletedData.push(row);
@@ -33,8 +38,8 @@ export const handler = async (bucket, key, targetId) => {
         fastCsv.write(data, { headers: true }).pipe(updatedCsvStream);
 
         const uploadParams = {
-            Bucket: bucket,
-            Key: key,
+            Bucket: BUCKET_NAME,
+            Key: OBJECT_KEY,
             Body: updatedCsvStream,
             ContentType: 'text/csv',
         };
@@ -49,8 +54,5 @@ export const handler = async (bucket, key, targetId) => {
 };
 
 
-const bucket = 'mt-test-bucket-v1';
-const key = 'Sample-data/customers-data.csv';
-const targetId = '13';
-
-handler(bucket, key, targetId);
+const targetId = "12"
+handler(targetId);
